@@ -1,8 +1,16 @@
 package postgres
 
-type PostgresRepository struct {
+import (
+	"log"
+)
+
+type Repository struct{}
+
+func NewRepository() *Repository {
+	return &Repository{}
 }
 
-func New() (*PostgresRepository, error) {
-	return &PostgresRepository{}, nil
+func (r *Repository) SaveIssue(issue interface{}) error {
+	log.Printf("POSTGRES: Saving issue: %+v", issue)
+	return nil
 }
