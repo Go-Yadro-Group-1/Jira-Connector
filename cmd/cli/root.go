@@ -1,8 +1,7 @@
 /*
 Copyright © 2026 German-Feskov
-
 */
-package cmd
+package cli
 
 import (
 	"fmt"
@@ -12,18 +11,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	configDir = "config"
+)
+
 var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "Jira-Connector",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "A brief description of root",
+	Long:  `A longer description root`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -33,7 +31,7 @@ to quickly create a Cobra application.`,
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
-	if err != nil {
+	if err != nil
 		os.Exit(1)
 	}
 }
@@ -55,17 +53,18 @@ func init() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if cfgFile != "" {
-		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
+		workDir, err := os.Getwd()
+		if err != nil {
+			cobra.CheckErr(err)
+		}
 
-		// Search config in home directory with name ".Jira-Connector" (without extension).
-		viper.AddConfigPath(home)
+		configPath := workDir + "/" + configDir
+
+		viper.AddConfigPath(configPath)
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".Jira-Connector")
+		viper.SetConfigName("local")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
