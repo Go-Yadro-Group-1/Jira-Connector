@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/Go-Yadro-Group-1/Jira-Connector/cmd/internal/config"
 	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/client/jira"
@@ -29,12 +34,23 @@ func main() {
 	repo := postgres.NewRepository()
 	svc := sync.NewService(jiraClient, repo)
 
-	logrus.Info("Starting Jira sync")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*100)
+	defer cancel()
 
-	err = svc.SyncProject(*projectKey)
-	if err != nil {
-		logrus.Errorf("Sync failed: %v", err)
-	} else {
-		logrus.Info("Sync completed successfully!")
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		logrus.Info("Received interrupt signal, shutting down...")
+		cancel()
+	}()
+
+	jql := `project = "` + *projectKey + `"`
+
+	if err := svc.RunWorkerPool(ctx, jql, 10); err != nil {
+		logrus.WithError(err).Error("Sync failed")
+		os.Exit(1)
 	}
+
+	logrus.Info("Sync completed successfully!")
 }
