@@ -37,15 +37,22 @@ type SearchResponse struct {
 	Total  int     `json:"total"`
 }
 
-func New(baseURL, token string) *JiraClient {
-	return &JiraClient{
-		baseURL: strings.TrimSuffix(baseURL, "/"),
-		token:   token,
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		limiter: rate.NewLimiter(rate.Every(100*time.Millisecond), 1),
+type JiraError struct {
+	StatusCode int
+	Body       []byte
+	Message    string
+}
+
+func (e *JiraError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("Jira API: %d, message: %s", e.StatusCode, e.Message)
 	}
+
+	return fmt.Sprintf("Jira API: %d, body: %s", e.StatusCode, string(e.Body))
+}
+
+func (e *JiraError) IsRateLimited() bool {
+	return e.StatusCode == http.StatusTooManyRequests
 }
 
 func getRetryAfter(resp *http.Response) time.Duration {
@@ -56,6 +63,17 @@ func getRetryAfter(resp *http.Response) time.Duration {
 	}
 
 	return 30 * time.Second
+}
+
+func New(baseURL, token string) *JiraClient {
+	return &JiraClient{
+		baseURL: strings.TrimSuffix(baseURL, "/"),
+		token:   token,
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		limiter: rate.NewLimiter(rate.Every(100*time.Millisecond), 1),
+	}
 }
 
 func (c *JiraClient) do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
@@ -83,14 +101,21 @@ func (c *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Jira API error: %d, body=%s", resp.StatusCode, string(body))
+	if resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read response body: %w", err)
+		}
+
+		return nil, &JiraError{
+			StatusCode: resp.StatusCode,
+			Body:       body,
+		}
 	}
 
 	var issue Issue
 	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode Jira issue response: %w", err)
 	}
 
 	return &issue, nil
@@ -107,15 +132,22 @@ func (c *JiraClient) SearchIssues(ctx context.Context, jql string) (*SearchRespo
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("search failed: %d, %s", resp.StatusCode, string(body))
+	if resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read response body: %w", err)
+		}
+
+		return nil, &JiraError{
+			StatusCode: resp.StatusCode,
+			Body:       body,
+		}
 	}
 
 	var sr SearchResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode Jira search response: %w", err)
 	}
 
 	return &sr, nil
