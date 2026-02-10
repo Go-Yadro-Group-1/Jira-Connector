@@ -7,38 +7,18 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 type JiraClient struct {
 	baseURL string
 	token   string
 	client  *http.Client
-}
-
-func New(baseURL, token string) *JiraClient {
-	return &JiraClient{
-		baseURL: strings.TrimSuffix(baseURL, "/"),
-		token:   token,
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-	}
-}
-
-func (c *JiraClient) do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, c.baseURL+path, body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json")
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
-	}
-
-	return c.client.Do(req.WithContext(ctx))
+	limiter *rate.Limiter
 }
 
 type Issue struct {
@@ -55,6 +35,45 @@ type Issue struct {
 type SearchResponse struct {
 	Issues []Issue `json:"issues"`
 	Total  int     `json:"total"`
+}
+
+func New(baseURL, token string) *JiraClient {
+	return &JiraClient{
+		baseURL: strings.TrimSuffix(baseURL, "/"),
+		token:   token,
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		limiter: rate.NewLimiter(rate.Every(100*time.Millisecond), 1),
+	}
+}
+
+func getRetryAfter(resp *http.Response) time.Duration {
+	if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+		if sec, err := strconv.Atoi(retryAfter); err == nil {
+			return time.Duration(sec) * time.Second
+		}
+	}
+
+	return 30 * time.Second
+}
+
+func (c *JiraClient) do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	if err := c.limiter.Wait(ctx); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(method, c.baseURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Accept", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	return c.client.Do(req.WithContext(ctx))
 }
 
 func (c *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, error) {
