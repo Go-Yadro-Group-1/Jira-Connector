@@ -57,8 +57,8 @@ type SearchResponse struct {
 	Total  int     `json:"total"`
 }
 
-func (c *JiraClient) GetIssue(key string) (*Issue, error) {
-	resp, err := c.do(context.Background(), "GET", fmt.Sprintf("/rest/api/2/issue/%s", key), nil)
+func (c *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, error) {
+	resp, err := c.do(ctx, "GET", fmt.Sprintf("/rest/api/2/issue/%s", key), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -73,15 +73,16 @@ func (c *JiraClient) GetIssue(key string) (*Issue, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
 		return nil, err
 	}
+
 	return &issue, nil
 }
 
-func (c *JiraClient) SearchIssues(jql string) (*SearchResponse, error) {
+func (c *JiraClient) SearchIssues(ctx context.Context, jql string) (*SearchResponse, error) {
 	encodedJQL := url.QueryEscape(jql)
 	fields := "summary,status"
 	urlStr := fmt.Sprintf("/rest/api/2/search?jql=%s&fields=%s", encodedJQL, fields)
 
-	resp, err := c.do(context.Background(), "GET", urlStr, nil)
+	resp, err := c.do(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -93,8 +94,10 @@ func (c *JiraClient) SearchIssues(jql string) (*SearchResponse, error) {
 	}
 
 	var sr SearchResponse
+
 	if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
 		return nil, err
 	}
+
 	return &sr, nil
 }
