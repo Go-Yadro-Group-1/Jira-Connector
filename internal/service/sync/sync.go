@@ -23,7 +23,7 @@ func NewService(jiraClient *jira.JiraClient, repo *postgres.Repository) *Service
 }
 
 func (s *Service) RunWorkerPool(ctx context.Context, jql string, maxWorkers int) error {
-	searchResp, err := s.jiraClient.SearchIssues(jql)
+	searchResp, err := s.jiraClient.SearchIssues(ctx, jql)
 	if err != nil {
 		return fmt.Errorf("failed to search issues: %w", err)
 	}
@@ -47,7 +47,13 @@ func (s *Service) RunWorkerPool(ctx context.Context, jql string, maxWorkers int)
 			taskID := issue.Key
 
 			pool.Submit(func(ctx context.Context) (jira.Issue, error) {
-				return issue, nil
+				issuePtr, err := s.jiraClient.GetIssue(ctx, issue.Key)
+
+				if err != nil {
+					return jira.Issue{}, err
+				}
+
+				return *issuePtr, nil
 			})
 
 			resultChan <- ResultWithID{TaskID: taskID}
@@ -101,6 +107,6 @@ func (s *Service) RunWorkerPool(ctx context.Context, jql string, maxWorkers int)
 		return fmt.Errorf("%d tasks failed", len(errs))
 	}
 
-	fmt.Printf("\n✓ Successfully processed %d issues\n", taskCount)
+	fmt.Printf("\nSuccessfully processed %d issues\n", taskCount)
 	return nil
 }
