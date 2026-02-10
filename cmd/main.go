@@ -4,16 +4,13 @@ import (
 	"context"
 	"flag"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
+	"sync"
 	"time"
 
 	"github.com/Go-Yadro-Group-1/Jira-Connector/cmd/internal/config"
 	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/client/jira"
 	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/repository/postgres"
-	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/service/sync"
-	"github.com/sirupsen/logrus"
+	mysync "github.com/Go-Yadro-Group-1/Jira-Connector/internal/service/sync"
 )
 
 var projectKey = flag.String("project", "", "Jira project key")
@@ -32,25 +29,35 @@ func main() {
 
 	jiraClient := jira.New(cfg.Jira.BaseURL, cfg.Jira.Token)
 	repo := postgres.NewRepository()
-	svc := sync.NewService(jiraClient, repo)
+	svc := mysync.NewService(jiraClient, repo)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*100)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1000)
 	defer cancel()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		logrus.Info("Received interrupt signal, shutting down...")
-		cancel()
-	}()
 
 	jql := `project = "` + *projectKey + `"`
 
-	if err := svc.RunWorkerPool(ctx, jql, 10); err != nil {
-		logrus.WithError(err).Error("Sync failed")
-		os.Exit(1)
+	errChan := make(chan error, 100)
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10000; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			childCtx, childCancel := context.WithTimeout(ctx, time.Second*30)
+			defer childCancel()
+
+			if err := svc.RunWorkerPool(childCtx, jql, 50); err != nil {
+				select {
+				case errChan <- err:
+				default:
+				}
+			}
+		}()
 	}
 
-	logrus.Info("Sync completed successfully!")
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
 }

@@ -32,7 +32,9 @@ func LoadDevConfig() (*AppConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var cfg AppConfig
 	err = yaml.Unmarshal(data, &cfg)
+
 	return &cfg, err
 }
