@@ -15,14 +15,14 @@ db:
   dbname: pgdb
   sslmode: require
 
-  broker:
-    url: "amqp://guest:guest@localhost:5672/"
-    exchange: "jira_events"
-    exchange_type: "topic"
-    queue: "jira_connector_queue"
-    routing_key: "jira.#"
-    prefetch_count: 10 # maybe reference on jira.workers
-    auto_reconnect: true
+broker:
+  url: "amqp://guest:guest@localhost:5672/"
+  exchange: "jira_events"
+  exchange_type: "topic"
+  queue: "jira_connector_queue"
+  routing_key: "jira.#"
+  prefetch_count: 10 # maybe reference on jira.workers
+  auto_reconnect: true
 
 app:
   log_level: "debug"
