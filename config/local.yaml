@@ -14,3 +14,6 @@ db:
   password: pgpassword
   dbname: pgdb
   sslmode: require
+
+app:
+  log_level: "debug"
