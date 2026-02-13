@@ -45,9 +45,12 @@ type BrokerConfig struct {
 	AutoReconnect bool   `mapstructure:"auto_reconnect"`
 }
 
+// TODO add some vars
 type AppConfig struct {
 	LogLevel string `mapstructure:"log_level" validate:"required,oneof=debug info warn error"`
 }
+
+//TODO add config for gRPC
 
 var (
 	appConfig *Config
@@ -85,6 +88,7 @@ func GetConfig() *Config {
 }
 
 func (c *Config) customValidate() error {
+	// Example of custom validation, TODO edit
 	if c.Jira.Token == "{Your API token}" {
 		return fmt.Errorf("jira token must be set")
 	}
