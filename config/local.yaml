@@ -1,7 +1,7 @@
 jira:
   # jira connector params
   url: "https://issues.apache.org/jira"
-  token: "{Your API token}"
+  token: "12341521521512"
   # processing
   unit_workers: 4
   max_time_retry: 10s
