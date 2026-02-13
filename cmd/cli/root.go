@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Go-Yadro-Group-1/Jira-Connector/cmd/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -31,7 +32,7 @@ var rootCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
-	if err != nil
+	if err != nil {
 		os.Exit(1)
 	}
 }
@@ -69,8 +70,17 @@ func initConfig() {
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Fprintf(os.Stderr, "Config read failed: %v\n", err)
+		os.Exit(1)
 	}
+
+	fmt.Fprintln(os.Stderr, "Config file:", viper.ConfigFileUsed())
+
+	if _, err := config.LoadConfig(); err != nil {
+		fmt.Fprintf(os.Stderr, "Config validation failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintln(os.Stderr, "Config loaded")
 }
