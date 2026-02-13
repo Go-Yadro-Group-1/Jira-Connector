@@ -6,8 +6,10 @@ run:
 
 linters:
   default: all
-  # disable:
-  #   - wsl
+  disable:
+    - depguard
+    - exhaustruct
+    - wsl
 
   exclusions:
     generated: strict
