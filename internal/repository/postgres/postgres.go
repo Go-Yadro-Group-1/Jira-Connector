@@ -1,7 +1,6 @@
 package postgres
 
-type PostgresRepository struct {
-}
+type PostgresRepository struct{}
 
 func New() (*PostgresRepository, error) {
 	return &PostgresRepository{}, nil
