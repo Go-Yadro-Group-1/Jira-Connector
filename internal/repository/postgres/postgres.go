@@ -1,12 +1,8 @@
 package postgres
 
-type Repository struct{}
+//nolint:revive
+type PostgresRepository struct{}
 
-func NewRepository() *Repository {
-	return &Repository{}
-}
-
-func (r *Repository) SaveIssue(issue interface{}) error {
-	// log.Printf("POSTGRES: Saving issue: %+v", issue)
-	return nil
+func New() (*PostgresRepository, error) {
+	return &PostgresRepository{}, nil
 }

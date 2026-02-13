@@ -24,9 +24,9 @@ const (
 )
 
 var (
-	errGetConfigFlag   = errors.New("get config path")
+	errGetConfigFlag   = errors.New("get config path") //nolint:unused
 	errReadConfig      = errors.New("read config file")
-	errValidateConfig  = errors.New("validate config")
+	errValidateConfig  = errors.New("validate config") //nolint:unused
 	errInitApplication = errors.New("create new fs manager")
 )
 
@@ -37,7 +37,7 @@ func NewRunCmd() *cobra.Command {
 		Short:   "Run File System Manager",
 		Long:    embeddedRunLongData,
 		Args:    cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error { //nolint:revive
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 			defer cancel()
 

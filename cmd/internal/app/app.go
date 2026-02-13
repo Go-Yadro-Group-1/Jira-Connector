@@ -9,9 +9,9 @@ import (
 
 type App struct {
 	cfg       config.Config
-	consumer  *consumer.Consumer
-	publisher *publisher.Publisher
-	syncer    *sync.SyncService
+	consumer  *consumer.Consumer   //nolint:unused
+	publisher *publisher.Publisher //nolint:unused
+	syncer    *sync.SyncService    //nolint:unused
 }
 
 func New(cfg config.Config) (*App, error) {
@@ -22,10 +22,13 @@ func New(cfg config.Config) (*App, error) {
 
 func (a *App) Run() <-chan error {
 	errChan := make(chan error, 1)
+
 	go func() {
 		defer close(errChan)
+
 		errChan <- a.run()
 	}()
+
 	return errChan
 }
 
