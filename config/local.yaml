@@ -6,3 +6,11 @@ jira:
   unit_workers: 4
   max_time_retry: 10s
   min_time_retry: 100ms
+
+db:
+  host: 127.0.0.1
+  port: 5432
+  user: pguser
+  password: pgpassword
+  dbname: pgdb
+  sslmode: require
