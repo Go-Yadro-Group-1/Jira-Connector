@@ -9,9 +9,9 @@ import (
 
 type App struct {
 	cfg       config.Config
-	consumer  *consumer.Consumer
-	publisher *publisher.Publisher
-	syncer    *sync.SyncService
+	consumer  *consumer.Consumer   //nolint:unused
+	publisher *publisher.Publisher //nolint:unused
+	syncer    *sync.SyncService    //nolint:unused
 }
 
 func New(cfg config.Config) (*App, error) {
