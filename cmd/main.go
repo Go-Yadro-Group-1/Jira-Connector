@@ -1,11 +1,16 @@
-/*
-Copyright © 2026 German-Feskov
-*/
 package main
 
-import "github.com/Go-Yadro-Group-1/Jira-Connector/cmd/cli"
+import (
+	"os"
 
-// TODO: add Graceful Shutdown
+	"github.com/Go-Yadro-Group-1/Jira-Connector/cmd/internal/cli"
+)
+
 func main() {
-	cli.Execute()
+	rootCmd := cli.NewRootCmd()
+
+	err := rootCmd.Execute()
+	if err != nil {
+		os.Exit(1)
+	}
 }
