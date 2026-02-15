@@ -1,15 +1,38 @@
 package main
 
 import (
-	"os"
+	"context"
 
-	"github.com/Go-Yadro-Group-1/Jira-Connector/cmd/internal/cli"
+	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/config"
+	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/repository"
+	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/server"
+	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/service"
+	"github.com/jackc/pgx/v4"
 )
 
 func main() {
-	rootCmd := cli.NewRootCmd()
-
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+	cfg, err := config.Load()
+	if err != nil {
+		return
 	}
+
+	repo, err := repository.NewRepository(cfg)
+	if err != nil {
+		return
+	}
+	defer repo.Close()
+
+	db, err := pgx.Connect(context.Background(), cfg.Database.DSN)
+	if err != nil {
+		return
+	}
+	defer db.Close(context.Background())
+
+	connectorService := service.NewConnectorService(cfg, repo)
+	server := server.NewServer(connectorService)
+
+	if err := server.Start(); err != nil {
+		return
+	}
+	defer server.Stop()
 }
