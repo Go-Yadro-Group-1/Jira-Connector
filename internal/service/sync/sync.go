@@ -1,6 +1,7 @@
 package sync
 
-type SyncService struct{}
+type SyncService struct {
+}
 
 func New() (*SyncService, error) {
 	return &SyncService{}, nil

@@ -1,6 +1,7 @@
 package consumer
 
-type Consumer struct{}
+type Consumer struct {
+}
 
 func New() (*Consumer, error) {
 	return &Consumer{}, nil

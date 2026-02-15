@@ -22,13 +22,10 @@ func New(cfg config.Config) (*App, error) {
 
 func (a *App) Run() <-chan error {
 	errChan := make(chan error, 1)
-
 	go func() {
 		defer close(errChan)
-
 		errChan <- a.run()
 	}()
-
 	return errChan
 }
 
