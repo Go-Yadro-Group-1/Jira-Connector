@@ -2,16 +2,10 @@ package app
 
 import (
 	"github.com/Go-Yadro-Group-1/Jira-Connector/cmd/internal/config"
-	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/broker/consumer"
-	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/broker/publisher"
-	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/service/sync"
 )
 
 type App struct {
-	cfg       config.Config
-	consumer  *consumer.Consumer
-	publisher *publisher.Publisher
-	syncer    *sync.SyncService
+	cfg config.Config
 }
 
 func New(cfg config.Config) (*App, error) {
