@@ -1,16 +1,12 @@
 package main
 
 import (
-	"os"
-
-	"github.com/Go-Yadro-Group-1/Jira-Connector/cmd/internal/cli"
+	"github.com/Go-Yadro-Group-1/Jira-Connector/cmd/cli"
 )
 
 func main() {
-	rootCmd := cli.NewRootCmd()
-
-	err := rootCmd.Execute()
+	err := cli.Execute()
 	if err != nil {
-		os.Exit(1)
+		panic(err)
 	}
 }
