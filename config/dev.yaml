@@ -1,0 +1,28 @@
+jira:
+  # jira connector params
+  url: "https://issues.apache.org/jira"
+  token: "12341521521512"
+  # processing
+  unit_workers: 4
+  max_time_retry: 10s
+  min_time_retry: 100ms
+
+db:
+  host: 127.0.0.1
+  port: 5432
+  user: pguser
+  password: pgpassword
+  dbname: pgdb
+  sslmode: require
+
+broker:
+  url: "amqp://guest:guest@localhost:5672/"
+  exchange: "jira_events"
+  exchange_type: "topic"
+  queue: "jira_connector_queue"
+  routing_key: "jira.#"
+  prefetch_count: 10 # maybe reference on jira.workers
+  auto_reconnect: true
+
+app:
+  log_level: "debug"
