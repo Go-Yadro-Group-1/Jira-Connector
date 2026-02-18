@@ -4,10 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"errors"
-<<<<<<< HEAD
 	"fmt"
-=======
->>>>>>> main
 	"log"
 	"os"
 	"os/signal"
@@ -22,10 +19,7 @@ import (
 var embeddedRunLongData string
 
 const (
-<<<<<<< HEAD
 	flagProjectKey    = "project"
-=======
->>>>>>> main
 	flagConfigFile    = "config"
 	flagConfigFileH   = "c"
 	defaultConfigPath = "config/release.yaml"
@@ -36,10 +30,7 @@ var (
 	errReadConfig      = errors.New("read config file")
 	errValidateConfig  = errors.New("validate config") //nolint:unused
 	errInitApplication = errors.New("create new fs manager")
-<<<<<<< HEAD
 	errNoProjectKey    = errors.New("flag --project is required")
-=======
->>>>>>> main
 )
 
 func NewRunCmd() *cobra.Command {
@@ -53,16 +44,11 @@ func NewRunCmd() *cobra.Command {
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 			defer cancel()
 
-<<<<<<< HEAD
 			cfg, err := config.LoadDevConfig()
-=======
-			cfg, err := config.New()
->>>>>>> main
 			if err != nil {
 				return errors.Join(errReadConfig, err)
 			}
 
-<<<<<<< HEAD
 			projectKey, err := cmd.Flags().GetString(flagProjectKey)
 			if err != nil {
 				return fmt.Errorf("failed to get project flag: %w", err)
@@ -72,9 +58,6 @@ func NewRunCmd() *cobra.Command {
 			}
 
 			connector, err := app.New(cfg.Jira, projectKey)
-=======
-			connector, err := app.New(cfg)
->>>>>>> main
 			if err != nil {
 				return errors.Join(errInitApplication, err)
 			}
@@ -100,8 +83,5 @@ func NewRunCmd() *cobra.Command {
 
 func initConfigPath(flagset *pflag.FlagSet) {
 	flagset.StringP(flagConfigFile, flagConfigFileH, defaultConfigPath, "path to config")
-<<<<<<< HEAD
 	flagset.String(flagProjectKey, "", "Jira project key to sync")
-=======
->>>>>>> main
 }
