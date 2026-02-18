@@ -8,9 +8,9 @@ import (
 	"github.com/Go-Yadro-Group-1/Jira-Connector/internal/repository/postgres"
 )
 
-type Service struct {
+type SyncService struct {
 	jiraClient *jira.JiraClient
-	repo       *postgres.Repository
+	repo       *postgres.PostgresRepository
 }
 
 type ResultWithID struct {
@@ -18,11 +18,11 @@ type ResultWithID struct {
 	Result[jira.Issue]
 }
 
-func NewService(jiraClient *jira.JiraClient, repo *postgres.Repository) *Service {
-	return &Service{jiraClient: jiraClient, repo: repo}
+func NewService(jiraClient *jira.JiraClient, repo *postgres.PostgresRepository) *SyncService {
+	return &SyncService{jiraClient: jiraClient, repo: repo}
 }
 
-func (s *Service) RunWorkerPool(ctx context.Context, jql string, maxWorkers int) error {
+func (s *SyncService) RunWorkerPool(ctx context.Context, jql string, maxWorkers int) error {
 	searchResp, err := s.jiraClient.SearchIssues(ctx, jql)
 	if err != nil {
 		return fmt.Errorf("failed to search issues: %w", err)
@@ -83,11 +83,6 @@ func (s *Service) RunWorkerPool(ctx context.Context, jql string, maxWorkers int)
 			if res.Err != nil {
 				errs = append(errs, fmt.Errorf("task %s (processed by %s) failed: %w",
 					taskIDs[completed-1], res.ID, res.Err))
-				continue
-			}
-
-			if err := s.repo.SaveIssue(res.Value); err != nil {
-				errs = append(errs, fmt.Errorf("failed to save issue %s: %w", res.Value.Key, err))
 				continue
 			}
 
