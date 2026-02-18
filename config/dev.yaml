@@ -1,5 +1,5 @@
 jira:
-  base_url: "https://issues.apache.org/jira"
+  baseUrl: "https://issues.apache.org/jira"
   token: ""
 
 db:
@@ -10,4 +10,4 @@ db:
   dbname: "jira_analyzer"
 
 app:
-  log_level: "info"
+  logLevel: "info"

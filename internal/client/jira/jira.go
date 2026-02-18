@@ -14,7 +14,13 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type JiraClient struct {
+const (
+	defaultTimeout    = 30 * time.Second
+	rateLimitInterval = 100 * time.Millisecond
+	defaultRetryAfter = 30 * time.Second
+)
+
+type Client struct {
 	baseURL string
 	token   string
 	client  *http.Client
@@ -37,13 +43,13 @@ type SearchResponse struct {
 	Total  int     `json:"total"`
 }
 
-type JiraError struct {
+type Error struct {
 	StatusCode int
 	Body       []byte
 	Message    string
 }
 
-func (e *JiraError) Error() string {
+func (e *Error) Error() string {
 	if e.Message != "" {
 		return fmt.Sprintf("Jira API: %d, message: %s", e.StatusCode, e.Message)
 	}
@@ -51,10 +57,11 @@ func (e *JiraError) Error() string {
 	return fmt.Sprintf("Jira API: %d, body: %s", e.StatusCode, string(e.Body))
 }
 
-func (e *JiraError) IsRateLimited() bool {
+func (e *Error) IsRateLimited() bool {
 	return e.StatusCode == http.StatusTooManyRequests
 }
 
+//nolint:unused
 func getRetryAfter(resp *http.Response) time.Duration {
 	if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
 		if sec, err := strconv.Atoi(retryAfter); err == nil {
@@ -62,40 +69,22 @@ func getRetryAfter(resp *http.Response) time.Duration {
 		}
 	}
 
-	return 30 * time.Second
+	return defaultRetryAfter
 }
 
-func New(baseURL, token string) *JiraClient {
-	return &JiraClient{
+func New(baseURL, token string) *Client {
+	return &Client{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		token:   token,
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: defaultTimeout,
 		},
-		limiter: rate.NewLimiter(rate.Every(100*time.Millisecond), 1),
+		limiter: rate.NewLimiter(rate.Every(rateLimitInterval), 1),
 	}
 }
 
-func (c *JiraClient) do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	if err := c.limiter.Wait(ctx); err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(method, c.baseURL+path, body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json")
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
-	}
-
-	return c.client.Do(req.WithContext(ctx))
-}
-
-func (c *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, error) {
-	resp, err := c.do(ctx, "GET", fmt.Sprintf("/rest/api/2/issue/%s", key), nil)
+func (c *Client) GetIssue(ctx context.Context, key string) (*Issue, error) {
+	resp, err := c.do(ctx, "GET", "/rest/api/2/issue/"+key, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -107,13 +96,14 @@ func (c *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, error) {
 			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
-		return nil, &JiraError{
+		return nil, &Error{
 			StatusCode: resp.StatusCode,
 			Body:       body,
 		}
 	}
 
 	var issue Issue
+
 	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
 		return nil, fmt.Errorf("decode Jira issue response: %w", err)
 	}
@@ -121,7 +111,7 @@ func (c *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, error) {
 	return &issue, nil
 }
 
-func (c *JiraClient) SearchIssues(ctx context.Context, jql string) (*SearchResponse, error) {
+func (c *Client) SearchIssues(ctx context.Context, jql string) (*SearchResponse, error) {
 	encodedJQL := url.QueryEscape(jql)
 	fields := "summary,status"
 	urlStr := fmt.Sprintf("/rest/api/2/search?jql=%s&fields=%s", encodedJQL, fields)
@@ -138,17 +128,44 @@ func (c *JiraClient) SearchIssues(ctx context.Context, jql string) (*SearchRespo
 			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
-		return nil, &JiraError{
+		return nil, &Error{
 			StatusCode: resp.StatusCode,
 			Body:       body,
 		}
 	}
 
-	var sr SearchResponse
+	var searchResp SearchResponse
 
-	if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
 		return nil, fmt.Errorf("decode Jira search response: %w", err)
 	}
 
-	return &sr, nil
+	return &searchResp, nil
+}
+
+func (c *Client) do(
+	ctx context.Context,
+	method, path string,
+	body io.Reader,
+) (*http.Response, error) {
+	if err := c.limiter.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("rate limiter wait failed: %w", err)
+	}
+
+	req, err := http.NewRequest(method, c.baseURL+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("create HTTP request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	resp, err := c.client.Do(req.WithContext(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("execute HTTP request: %w", err)
+	}
+
+	return resp, nil
 }

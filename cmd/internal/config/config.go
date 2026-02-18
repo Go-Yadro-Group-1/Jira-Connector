@@ -1,13 +1,14 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v3"
 )
 
 type JiraConfig struct {
-	BaseURL string `yaml:"base_url"`
+	BaseURL string `yaml:"baseUrl"`
 	Token   string `yaml:"token"`
 }
 
@@ -23,18 +24,20 @@ type AppConfig struct {
 	Jira JiraConfig `yaml:"jira"`
 	DB   DBConfig   `yaml:"db"`
 	App  struct {
-		LogLevel string `yaml:"log_level"`
+		LogLevel string `yaml:"logLevel"`
 	} `yaml:"app"`
 }
 
 func LoadDevConfig() (*AppConfig, error) {
 	data, err := os.ReadFile("config/dev.yaml")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	var cfg AppConfig
-	err = yaml.Unmarshal(data, &cfg)
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config YAML: %w", err)
+	}
 
-	return &cfg, err
+	return &cfg, nil
 }

@@ -32,12 +32,12 @@ func New[T any](maxWorkers int) *WorkerPool[T] {
 func (p *WorkerPool[T]) Start(ctx context.Context) {
 	p.wg.Add(p.maxWorkers)
 
-	for i := 0; i < p.maxWorkers; i++ {
+	for i := range p.maxWorkers {
 		go p.worker(ctx, i)
 	}
 }
 
-func (p *WorkerPool[T]) worker(ctx context.Context, id int) {
+func (p *WorkerPool[T]) worker(ctx context.Context, workerID int) {
 	defer p.wg.Done()
 
 	for {
@@ -49,7 +49,7 @@ func (p *WorkerPool[T]) worker(ctx context.Context, id int) {
 				return
 			}
 
-			result := Result[T]{ID: fmt.Sprintf("worker-%d", id)}
+			result := Result[T]{ID: fmt.Sprintf("worker-%d", workerID)}
 			result.Value, result.Err = task(ctx)
 
 			p.results <- result
