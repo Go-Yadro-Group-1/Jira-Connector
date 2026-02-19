@@ -44,9 +44,9 @@ type SearchResponse struct {
 }
 
 type Error struct {
-	StatusCode    int
-	Body          []byte
-	Message       string
+	StatusCode    int               `json:"-"`
+	Body          []byte            `json:"-"`
+	Message       string            `json:"-"`
 	ErrorMessages []string          `json:"errorMessages,omitempty"`
 	Errors        map[string]string `json:"errors,omitempty"`
 }
@@ -65,24 +65,6 @@ func (e *Error) Error() string {
 	}
 
 	return fmt.Sprintf("Jira API: %d, body: %s", e.StatusCode, string(e.Body))
-}
-
-func (c *Client) handleErrorResponse(resp *http.Response) error {
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read error response body: %w", err)
-	}
-
-	errAPI := &Error{
-		StatusCode: resp.StatusCode,
-		Body:       body,
-	}
-
-	if err := json.Unmarshal(body, errAPI); err != nil {
-		errAPI.Message = string(body)
-	}
-
-	return errAPI
 }
 
 func (e *Error) IsRateLimited() bool {
@@ -151,6 +133,24 @@ func (c *Client) SearchIssues(ctx context.Context, jql string) (*SearchResponse,
 	}
 
 	return &searchResp, nil
+}
+
+func (c *Client) handleErrorResponse(resp *http.Response) error {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read error response body: %w", err)
+	}
+
+	errAPI := &Error{
+		StatusCode: resp.StatusCode,
+		Body:       body,
+	}
+
+	if err := json.Unmarshal(body, errAPI); err != nil {
+		errAPI.Message = string(body)
+	}
+
+	return errAPI
 }
 
 func (c *Client) do(
