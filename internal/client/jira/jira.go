@@ -44,9 +44,11 @@ type SearchResponse struct {
 }
 
 type Error struct {
-	StatusCode int
-	Body       []byte
-	Message    string
+	StatusCode    int
+	Body          []byte
+	Message       string
+	ErrorMessages []string          `json:"errorMessages,omitempty"`
+	Errors        map[string]string `json:"errors,omitempty"`
 }
 
 func (e *Error) Error() string {
@@ -54,7 +56,33 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("Jira API: %d, message: %s", e.StatusCode, e.Message)
 	}
 
+	if len(e.ErrorMessages) > 0 {
+		return fmt.Sprintf("Jira API: %d, errors: %v", e.StatusCode, e.ErrorMessages)
+	}
+
+	if len(e.Errors) > 0 {
+		return fmt.Sprintf("Jira API: %d, field errors: %v", e.StatusCode, e.Errors)
+	}
+
 	return fmt.Sprintf("Jira API: %d, body: %s", e.StatusCode, string(e.Body))
+}
+
+func (c *Client) handleErrorResponse(resp *http.Response) error {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read error response body: %w", err)
+	}
+
+	errAPI := &Error{
+		StatusCode: resp.StatusCode,
+		Body:       body,
+	}
+
+	if err := json.Unmarshal(body, errAPI); err != nil {
+		errAPI.Message = string(body)
+	}
+
+	return errAPI
 }
 
 func (e *Error) IsRateLimited() bool {
@@ -84,26 +112,17 @@ func New(baseURL, token string) *Client {
 }
 
 func (c *Client) GetIssue(ctx context.Context, key string) (*Issue, error) {
-	resp, err := c.do(ctx, "GET", "/rest/api/2/issue/"+key, nil)
+	resp, err := c.do(ctx, http.MethodGet, "/rest/api/2/issue/"+key, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch issue %q: %w", key, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("read response body: %w", err)
-		}
-
-		return nil, &Error{
-			StatusCode: resp.StatusCode,
-			Body:       body,
-		}
+		return nil, c.handleErrorResponse(resp)
 	}
 
 	var issue Issue
-
 	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
 		return nil, fmt.Errorf("decode Jira issue response: %w", err)
 	}
@@ -116,26 +135,17 @@ func (c *Client) SearchIssues(ctx context.Context, jql string) (*SearchResponse,
 	fields := "summary,status"
 	urlStr := fmt.Sprintf("/rest/api/2/search?jql=%s&fields=%s", encodedJQL, fields)
 
-	resp, err := c.do(ctx, "GET", urlStr, nil)
+	resp, err := c.do(ctx, http.MethodGet, urlStr, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to perform GET request to %q: %w", urlStr, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("read response body: %w", err)
-		}
-
-		return nil, &Error{
-			StatusCode: resp.StatusCode,
-			Body:       body,
-		}
+		return nil, c.handleErrorResponse(resp)
 	}
 
 	var searchResp SearchResponse
-
 	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
 		return nil, fmt.Errorf("decode Jira search response: %w", err)
 	}
