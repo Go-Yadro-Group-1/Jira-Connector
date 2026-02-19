@@ -1,0 +1,13 @@
+jira:
+  baseUrl: "https://issues.apache.org/jira"
+  token: ""
+
+db:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "password"
+  dbname: "jira_analyzer"
+
+app:
+  logLevel: "info"
