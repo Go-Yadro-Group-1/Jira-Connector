@@ -256,8 +256,24 @@ func (s *Service) SyncProject(ctx context.Context, projectKey string) (Result, e
 	// Detach from the request context so client disconnect cannot cancel the job.
 	detachedCtx := context.WithoutCancel(ctx)
 
+	s.launchSyncJob(detachedCtx, projectKey, projectID, syncID, pgRepo)
+
+	return Result{
+		SyncID:    syncID,
+		ProjectID: strconv.FormatInt(projectID, 10),
+		Status:    "running",
+	}, nil
+}
+
+func (s *Service) launchSyncJob(
+	ctx context.Context,
+	projectKey string,
+	projectID int64,
+	syncID string,
+	pgRepo *postgres.PostgresRepository,
+) {
 	go func() {
-		syncCtx, cancel := context.WithTimeout(detachedCtx, syncTimeout)
+		syncCtx, cancel := context.WithTimeout(ctx, syncTimeout)
 		defer cancel()
 
 		s.logger.InfoContext(
@@ -272,7 +288,7 @@ func (s *Service) SyncProject(ctx context.Context, projectKey string) (Result, e
 		syncErr := s.runSync(syncCtx, pgRepo, syncID, projectKey, projectID)
 
 		s.mtr.ObserveSyncDuration(time.Since(start).Seconds())
-		
+
 		if syncErr != nil {
 			s.logger.ErrorContext(
 				syncCtx,
@@ -296,12 +312,6 @@ func (s *Service) SyncProject(ctx context.Context, projectKey string) (Result, e
 		s.manager.Complete(syncID)
 		s.mtr.SyncJobFinished(false)
 	}()
-
-	return Result{
-		SyncID:    syncID,
-		ProjectID: strconv.FormatInt(projectID, 10),
-		Status:    "running",
-	}, nil
 }
 
 // runSync fetches all issues for a project page by page, each page committed in
@@ -389,54 +399,75 @@ func (s *Service) fetchPageIssues(
 	group.Go(func() error {
 		defer pool.Stop()
 
-		for _, iss := range pageIssues {
-			task := workerpool.NewTask(iss.Key, IssueTaskPayload{
-				IssueKey:  iss.Key,
-				ProjectID: projectID,
-			})
-
-			submitErr := pool.Submit(groupCtx, task)
-			if submitErr != nil {
-				return fmt.Errorf("submit %s: %w", iss.Key, submitErr)
-			}
-		}
-
-		return nil
+		return s.submitTasks(groupCtx, pool, projectID, pageIssues)
 	})
 
 	var collected []processedIssue
 
 	group.Go(func() error {
-		for res := range resultCh {
-			if res.Err != nil {
-				// Per-issue fetch failure is non-fatal.
-				s.logger.WarnContext(
-					ctx,
-					"fetch issue failed",
-					slog.String("task_id", res.TaskID),
-					slog.Any("error", res.Err),
-				)
+		var err error
 
-				continue
-			}
+		collected, err = s.collectTasks(ctx, cancel, resultCh)
 
-			item, ok := res.Result.(processedIssue)
-			if !ok {
-				// Programming error: unexpected result type is fatal.
-				cancel()
-
-				return fmt.Errorf("%w: %T", errUnexpectedResultType, res.Result)
-			}
-
-			collected = append(collected, item)
-		}
-
-		return nil
+		return err
 	})
 
 	waitErr := group.Wait()
 	if waitErr != nil {
 		return nil, fmt.Errorf("fetch page: %w", waitErr)
+	}
+
+	return collected, nil
+}
+
+func (s *Service) submitTasks(
+	ctx context.Context,
+	pool *workerpool.WorkerPool,
+	projectID int64,
+	pageIssues []jira.Issue,
+) error {
+	for _, iss := range pageIssues {
+		task := workerpool.NewTask(iss.Key, IssueTaskPayload{
+			IssueKey:  iss.Key,
+			ProjectID: projectID,
+		})
+
+		submitErr := pool.Submit(ctx, task)
+		if submitErr != nil {
+			return fmt.Errorf("submit %s: %w", iss.Key, submitErr)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) collectTasks(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	resultCh <-chan workerpool.TaskResult,
+) ([]processedIssue, error) {
+	var collected []processedIssue
+
+	for res := range resultCh {
+		if res.Err != nil {
+			s.logger.WarnContext(
+				ctx,
+				"fetch issue failed",
+				slog.String("task_id", res.TaskID),
+				slog.Any("error", res.Err),
+			)
+
+			continue
+		}
+
+		item, ok := res.Result.(processedIssue)
+		if !ok {
+			cancel()
+
+			return nil, fmt.Errorf("%w: %T", errUnexpectedResultType, res.Result)
+		}
+
+		collected = append(collected, item)
 	}
 
 	return collected, nil
