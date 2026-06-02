@@ -198,7 +198,9 @@ func buildGRPCServer(
 		syncsvc.WithLogger(logger),
 		syncsvc.WithMetrics(mtr),
 	)
-	handler := grpchandler.New(svc) // Handler in async branch does not take logger, only LoggingInterceptor does
+	handler := grpchandler.New(
+		svc,
+	) // Handler in async branch does not take logger, only LoggingInterceptor does
 
 	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
 		grpchandler.LoggingInterceptor(logger),

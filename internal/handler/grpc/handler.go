@@ -5,7 +5,6 @@ package grpchandler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 

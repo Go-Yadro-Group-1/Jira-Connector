@@ -167,13 +167,13 @@ func (wp *WorkerPool) Stats() *PoolStats {
 }
 
 func (wp *WorkerPool) worker(ctx context.Context, identifier int) {
-	wp.logger.InfoContext(ctx, "worker started", slog.Int("worker_id", identifier))
+	wp.logger.DebugContext(ctx, "worker started", slog.Int("worker_id", identifier))
 
 	for {
 		select {
 		case task, ok := <-wp.taskCh:
 			if !ok {
-				wp.logger.InfoContext(
+				wp.logger.DebugContext(
 					ctx,
 					"worker stopping: task channel closed",
 					slog.Int("worker_id", identifier),
@@ -187,7 +187,7 @@ func (wp *WorkerPool) worker(ctx context.Context, identifier int) {
 
 			if err != nil {
 				wp.stats.Failed.Add(1)
-				wp.logger.ErrorContext(
+				wp.logger.DebugContext(
 					ctx,
 					"worker task failed",
 					slog.Int("worker_id", identifier),
@@ -201,7 +201,7 @@ func (wp *WorkerPool) worker(ctx context.Context, identifier int) {
 			select {
 			case wp.resultCh <- result:
 			case <-ctx.Done():
-				wp.logger.InfoContext(
+				wp.logger.DebugContext(
 					ctx,
 					"worker stopping: context done while sending result",
 					slog.Int("worker_id", identifier),
@@ -211,7 +211,7 @@ func (wp *WorkerPool) worker(ctx context.Context, identifier int) {
 			}
 
 		case <-ctx.Done():
-			wp.logger.InfoContext(
+			wp.logger.DebugContext(
 				ctx,
 				"worker stopping: context done",
 				slog.Int("worker_id", identifier),
